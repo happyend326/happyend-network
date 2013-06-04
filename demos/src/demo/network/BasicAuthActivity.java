@@ -6,81 +6,101 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 import android.view.View;
-import android.widget.*;
+import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 import mobi.happyend.framework.network.CustomMultipartEntity;
 import mobi.happyend.framework.network.HdHttpClient;
 import mobi.happyend.framework.network.HdHttpRequestException;
 import mobi.happyend.framework.network.HdHttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BasicAuthActivity extends BaseActivity {
-    ProgressBar progressBar;
-    HdHttpClient httpClient;
-    String SDCardRoot;
+
+    Button btn1;
+    TextView text;
 
     @Override
     public void onCreate(Bundle bundle){
         super.onCreate(bundle);
-        setContentView(R.layout.demo1);
-        httpClient = new HdHttpClient();
+        setContentView(R.layout.demo3);
 
-        SDCardRoot = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator;
+        this.btn1 = (Button)this.findViewById(R.id.basicauth);
+        this.text = (TextView)this.findViewById(R.id.dataview);
 
-        this.progressBar = (ProgressBar)this.findViewById(R.id.progressbar);
-
-        progressBar.setMax(100);
-
-        Button btn = (Button)this.findViewById(R.id.button);
-        btn.setOnClickListener(new View.OnClickListener() {
+        this.btn1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                upload();
+                new PostDataTask().execute();
             }
         });
+
     }
 
-    private void upload(){
-        new UploadTask().execute();
-    }
-
-    private class UploadTask extends AsyncTask<Void, Long, String> {
+    private class PostDataTask extends AsyncTask<Void, Long, String> {
         @Override
         protected String doInBackground(Void... voids) {
-            File file = new File(SDCardRoot+"DCIM/Camera/1364112813723.jpg");
-            final long filesize = file.length();
-            Log.d("benben", "filesize:"+filesize);
-            HdHttpClient.UploadFile uploadFile = new HdHttpClient.UploadFile("file", file, new CustomMultipartEntity.ProgressListener(){
+            HdHttpClient httpClient = new HdHttpClient().supportBasicAuth(new AuthScope("testapi.zank.mobi", 80), "48661038@qq.com", md5("111111")).supportGzip();
+            httpClient.setHeader("Accept-Encoding","gzip,deflate,sdch");
 
-                @Override
-                public void transferred(long num) {
-                    Log.d("benben", "num:"+num);
-                    publishProgress(num, filesize);
-                }
-            });
+            String url = "baisc auth url";
             try {
-                HdHttpResponse res =  httpClient.post("http://happyend.me/upload.php", uploadFile);
+                HdHttpResponse res = httpClient.post(url);
                 return res.asString();
             } catch (HdHttpRequestException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                e.printStackTrace();
             }
             return null;
         }
 
         @Override
-        protected void onProgressUpdate(Long... progress) {
-            long now = progress[0];
-            long length = progress[1];
-            progressBar.setProgress((int)(now*100/length));
-        }
-
-        @Override
         protected void onPostExecute(String result) {
-            Toast.makeText(BasicAuthActivity.this, result, Toast.LENGTH_SHORT).show();
+            if(result == null) {
+                text.setText("加载错误");
+            } else {
+                text.setText(result);
+            }
+
             super.onPostExecute(result);
 
         }
 
     }
 
+    public static String md5(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        StringBuilder hexString = new StringBuilder();
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            md.update(text.getBytes());
+
+            byte[] digest = md.digest();
+
+            for (byte aDigest : digest) {
+                text = Integer.toHexString(0xFF & aDigest);
+                if (text.length() < 2) {
+                    text = "0" + text;
+                }
+                hexString.append(text);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return hexString.toString();
+    }
 }

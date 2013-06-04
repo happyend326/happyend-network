@@ -1,17 +1,27 @@
 package demo.network;
 
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import mobi.happyend.framework.network.HdHttpClient;
 import mobi.happyend.framework.network.HdHttpRequestException;
 import mobi.happyend.framework.network.HdHttpResponse;
+import mobi.happyend.framework.network.HdHttpResponseException;
 import mobi.happyend.framework.network.utils.HdHttpUtil;
 import org.apache.http.message.BasicNameValuePair;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,55 +29,109 @@ public class DownloadActivity extends BaseActivity {
 
     Button btn1;
     Button btn2;
+    Button btn3;
     TextView text;
+    HdHttpClient httpClient ;
+    ImageView image;
+
+    boolean isCancelFile;
+    boolean isCancelBitmap;
+    String btn2Str;
+    String btn3Str;
 
     @Override
     public void onCreate(Bundle bundle){
         super.onCreate(bundle);
-        setContentView(R.layout.demo2);
+        setContentView(R.layout.demo4);
 
-        this.btn1 = (Button)this.findViewById(R.id.getgzipdata);
-        this.btn2 = (Button)this.findViewById(R.id.postgzipdata);
+        httpClient = new HdHttpClient().supportGzip().
+                supportMainThreadCheck().supportTimeoutAndRetry();
+
+        this.btn1 = (Button)this.findViewById(R.id.download_file);
+        this.btn2 = (Button)this.findViewById(R.id.download_bitmap);
+        btn2Str = btn2.getText().toString();
+        btn2.setText(btn2Str+"--开始下载");
+        this.btn3 = (Button)this.findViewById(R.id.download_file_b);
+        btn3Str = btn3.getText().toString();
+        btn3.setText(btn3Str+"--开始下载");
         this.text = (TextView)this.findViewById(R.id.dataview);
+        this.image = (ImageView)this.findViewById(R.id.image);
 
         this.btn1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new GetDataTask().execute();
+                new DownloadFileTask().execute(false);
             }
         });
 
         this.btn2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new PostDataTask().execute();
+                isCancelBitmap = !isCancelBitmap;
+                if(isCancelBitmap){
+                    btn2.setText(btn2Str + "--开始下载");
+                    httpClient.cancel();
+                } else {
+                    btn2.setText(btn2Str + "--停止下载");
+                    new DownloadBitmap().execute();
+                }
+            }
+        });
+
+        this.btn3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                isCancelFile = !isCancelFile;
+                if(isCancelFile){
+                    btn3.setText(btn3Str + "--开始下载");
+                    httpClient.cancel();
+                } else {
+                    btn3.setText(btn3Str + "--停止下载");
+                    new DownloadFileTask().execute(true);
+                }
             }
         });
     }
 
-    private class GetDataTask extends AsyncTask<Void, Long, String> {
+    private class DownloadFileTask extends AsyncTask<Boolean, Long, File> {
         @Override
-        protected String doInBackground(Void... voids) {
-            HdHttpClient httpClient = new HdHttpClient().supportGzip().
-                    supportMainThreadCheck().supportTimeoutAndRetry();
-            httpClient.setHeader("Accept-Encoding","gzip,deflate,sdch");
-
-            String url = "http://testapi.zank.mobi/snowball/api/message/msg/getTalks.json?cv=1.0.4&ct=android-zank&token=24b4614e29790937935525d6c32959fd";
+        protected File doInBackground(Boolean... voids) {
+            boolean isBreakPoint = voids[0];
+            String filePath = Environment.getExternalStorageDirectory()+File.separator+"tbclient_4_0_0.apk";
             try {
-                HdHttpResponse res = httpClient.get(url);
-                return res.asString();
+                httpClient.download("http://static.tieba.baidu.com/client/android/tbclient_4_0_0.apk", filePath, new HdHttpClient.DownloadProgressListener() {
+                    @Override
+                    public void onProgress(long downloaded, long contentLength) {
+                        Log.d("benben", "total:"+contentLength+"-----"+"downloaded:"+downloaded);
+                        publishProgress(downloaded, contentLength);
+                    }
+                }, isBreakPoint);
             } catch (HdHttpRequestException e) {
-                e.printStackTrace();
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (HdHttpResponseException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-            return null;
+
+            return new File(filePath);
         }
 
         @Override
-        protected void onPostExecute(String result) {
+        protected void onProgressUpdate(Long...progress){
+            long dowloaded = progress[0];
+            long total = progress[1];
+
+            long per =  dowloaded*100/total;
+            if(per > 0) {
+                text.setText("downloaded:"+per+"%");
+            }
+        }
+
+        @Override
+        protected void onPostExecute(File result) {
             if(result == null) {
                 text.setText("加载错误");
             } else {
-                text.setText(result);
+                text.setText("success! size:"+result.length());
             }
 
             super.onPostExecute(result);
@@ -76,43 +140,52 @@ public class DownloadActivity extends BaseActivity {
 
     }
 
-    private class PostDataTask extends AsyncTask<Void, Long, String> {
+    private class DownloadBitmap extends AsyncTask<Void, Long, Bitmap> {
         @Override
-        protected String doInBackground(Void... voids) {
-            HdHttpClient httpClient = new HdHttpClient().supportGzip().
-                    supportMainThreadCheck().supportTimeoutAndRetry();
-            httpClient.setHeader("Accept-Encoding","gzip,deflate,sdch");
-
-            String url = "http://happyend.me/demos/framework/network/postgzip.php";
+        protected Bitmap doInBackground(Void... voids) {
+            Bitmap bitmap = null;
+            String filePath = Environment.getExternalStorageDirectory()+File.separator+"20130327329.jpg";
             try {
-                String postdata = "hello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gziphello gzip";
-                byte[] b = HdHttpUtil.compress(postdata.toString().getBytes());
-                HdHttpClient.UploadFile file = new HdHttpClient.UploadFile("bytes", b);
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inSampleSize = 4;
+                bitmap = httpClient.downloadBitmap("http://hi.baidu.com/cm/static/20130327329.jpg", filePath, options, new HdHttpClient.DownloadProgressListener() {
+                    @Override
+                    public void onProgress(long downloaded, long contentLength) {
+                        publishProgress(downloaded, contentLength);
 
-                List<BasicNameValuePair> params = new ArrayList<BasicNameValuePair>();
-                HdHttpResponse res = httpClient.post(url,file);
-                return res.asString();
+                    }
+                }, true);
             } catch (HdHttpRequestException e) {
-                e.printStackTrace();
-                String s = e.getMessage();
-            } catch (Exception e) {
-
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (HdHttpResponseException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-            return null;
+            return bitmap;
         }
 
         @Override
-        protected void onPostExecute(String result) {
+        protected void onProgressUpdate(Long...progress){
+            long dowloaded = progress[0];
+            long total = progress[1];
+
+            long per =  dowloaded*100/total;
+            if(per > 0) {
+                text.setText("downloaded:"+per+"%");
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap result) {
             if(result == null) {
-                text.setText("加载错误");
+                //text.setText("加载错误");
             } else {
-                text.setText(result);
+                text.setText("success!");
+                image.setImageBitmap(result);
             }
 
             super.onPostExecute(result);
 
         }
-
     }
 
 }

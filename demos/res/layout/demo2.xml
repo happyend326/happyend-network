@@ -5,11 +5,16 @@
         android:orientation="vertical">
 
     <Button
-            android:id="@+id/basicauth"
+            android:id="@+id/getgzipdata"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:text="send basic auth request"></Button>
+            android:text="Get Gzip data"></Button>
 
+    <Button
+            android:id="@+id/postgzipdata"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:text="Post Gzip data"></Button>
 
     <TextView
             android:id="@+id/dataview"

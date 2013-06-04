@@ -1,21 +1,16 @@
 package mobi.happyend.framework.network.utils;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.RandomAccessFile;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.telephony.TelephonyManager;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 public class HdHttpUtil {
 	public static final int NETWORK_OPERATOR_UNKOWN = 0;
@@ -25,24 +20,23 @@ public class HdHttpUtil {
 	
     private static final int DEFAULT_BUFFER_SIZE = 1024 * 4;
     /**
-     * 字符串是否为空。
-     * 
-     * @param src 字符串
-     * @return 是否为空
+     * String is null。
+     *
+     * @param src
+     * @return boolean
      */
     public static boolean isEmptyString(String src) {
         return src == null || src.trim().length() == 0;
     }
     
     /**
-     * 当前是否是wifi网络。
-     * 
-     * @return 当前是否是wifi网络
+     * Return if the device is connected to wifi.
+     *
+     * @return boolean
      */
-    public static boolean isWifi() {
+    public static boolean isWifi(Context context) {
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager)BdHttpManager.getInstance()
-            		.getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+            ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
             NetworkInfo activeNetInfo = connectivityManager.getActiveNetworkInfo();
             if (activeNetInfo != null && activeNetInfo.getType() == ConnectivityManager.TYPE_WIFI) {
                 return true;
@@ -52,15 +46,53 @@ public class HdHttpUtil {
         return false;
     }
 
+    /**
+     * Return if the device is connected to the 3G net.
+     *
+     * @param context
+     * @return boolean
+     */
+    public static boolean is3G(Context context){
+        TelephonyManager telephony = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        int networkType = telephony.getNetworkType();
+
+        return networkType == TelephonyManager.NETWORK_TYPE_UMTS ||
+                networkType == TelephonyManager.NETWORK_TYPE_HSDPA ||
+                networkType == TelephonyManager.NETWORK_TYPE_EVDO_0 ||
+                networkType == TelephonyManager.NETWORK_TYPE_EVDO_A ||
+                networkType == TelephonyManager.NETWORK_TYPE_LTE ||
+                networkType == TelephonyManager.NETWORK_TYPE_EVDO_B ||
+                networkType == TelephonyManager.NETWORK_TYPE_EHRPD ||
+                networkType == TelephonyManager.NETWORK_TYPE_HSUPA;
+
+    }
+
+    /**
+     * Return if the device is connected to the 2G net.
+     *
+     * @param context
+     * @return boolean
+     */
+    public static boolean is2G(Context context){
+        TelephonyManager telephony = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        int networkType = telephony.getNetworkType();
+
+        return networkType == TelephonyManager.NETWORK_TYPE_1xRTT ||
+                networkType == TelephonyManager.NETWORK_TYPE_CDMA ||
+                networkType == TelephonyManager.NETWORK_TYPE_EDGE ||
+                networkType == TelephonyManager.NETWORK_TYPE_IDEN ||
+                networkType == TelephonyManager.NETWORK_TYPE_GPRS;
+
+    }
+
 
 	/**
-	 * 判断当前网络连接是否可用
+	 * Return if the network is available for the device
 	 * 
-	 * @return
+	 * @return  boolean
 	 */
-	public static boolean isNetAvailable() {
-	    ConnectivityManager connectivityManager = (ConnectivityManager)BdHttpManager.getInstance()
-	    		.getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+	public static boolean isNetAvailable(Context context) {
+	    ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
 	    NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
 	    if (networkInfo != null) {
 	        return networkInfo.isAvailable();
@@ -70,14 +102,13 @@ public class HdHttpUtil {
 	}
 	
 	/**
-	 * 当前是否是移动网络。
+	 * Return if the device is connected to mobile network.
 	 * 
-	 * @return 当前是否是移动网络
+	 * @return boolean
 	 */
-	public static boolean isMobile() {
+	public static boolean isMobile(Context context) {
 	    try {
-	        ConnectivityManager connectivityManager = (ConnectivityManager)BdHttpManager.getInstance()
-	        		.getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+	        ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
 	        NetworkInfo activeNetInfo = connectivityManager.getActiveNetworkInfo();
 	        if (activeNetInfo != null && activeNetInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
 	            return true;
@@ -86,7 +117,12 @@ public class HdHttpUtil {
 	    }
 	    return false;
 	}
-	
+
+    /**
+     * Return if the device is connected to wap network.
+     *
+     * @return boolean
+     */
 	public static boolean isWap(String proxyhost) {
 		Pattern pattern = Pattern.compile("^[0]{0,1}10\\.[0]{1,3}\\.[0]{1,3}\\.172$", Pattern.MULTILINE);
 		boolean ret = false;
@@ -100,48 +136,16 @@ public class HdHttpUtil {
 	}
 	
 	/**
-	 * 根据请求应答的contentType判断是否是wap资费页。
-	 * 
-	 * @param contentType
-	 * @return 是否是wap资费页
-	 */
-	public static boolean isWAPFeePage(String contentType) {
-	    return contentType != null && contentType.contains("vnd.wap.wml");
-	}
-	
-	/**
-	 * 从请求应答的contentType中解析charset信息。
-	 * 
-	 * @param contentType
-	 * @return charset
-	 */
-	public static String parseCharset(String contentType) {
-	    String codingType = "utf-8";
-	    if (contentType != null) {
-	        String[] segs = contentType.split(";");
-	        for (String seg : segs) {
-	            if (seg.contains("charset")) {
-	                String[] nv = seg.split("=");
-	                if (nv.length > 1)
-	                    codingType = nv[1].trim();
-	                break;
-	            }
-	        }
-	    }
-	    return codingType;
-	}
-	
-	/**
-	 * 在建立连接时是否使用代理
+	 * return if proxy is used for connect to the network
 	 * @return
 	 */
-	public static boolean isPorxyUsed() {
-		if (isWifi()) {
+	public static boolean isPorxyUsed(Context context) {
+		if (isWifi(context)) {
 			return false;
 		}
 		
 		// 不管cmnet和cmwap都选择直连方式
-		if (readNetworkOperatorType() == NETWORK_OPERATOR_MOBILE) {
+		if (readNetworkOperatorType(context) == NETWORK_OPERATOR_MOBILE) {
 			return false;
 		}
 	
@@ -154,11 +158,10 @@ public class HdHttpUtil {
 	}
 	
     /**
-     * 读取运营商类型
+     * read the network operator type
      */
-	public static int readNetworkOperatorType() {
-        TelephonyManager telManager = (TelephonyManager)BdHttpManager.getInstance().getContext()
-                .getSystemService(Context.TELEPHONY_SERVICE);
+	public static int readNetworkOperatorType(Context context) {
+        TelephonyManager telManager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);
         String operator = telManager.getNetworkOperator();
 
         // 飞行模式下 获取不到operator
@@ -199,120 +202,44 @@ public class HdHttpUtil {
         return NETWORK_OPERATOR_UNKOWN;
     }
 
-	public static boolean writeFile(String dest, byte[] content, long startpos) {
-		if(dest==null || content==null || content.length<=0)
-			return false;
-
-		try {
-			RandomAccessFile destfile = new RandomAccessFile (dest, "rw");
-			destfile.seek(startpos);
-			destfile.write(content);
-			destfile.close();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-				
-		return true;
-	}
-	
-	public static byte[] readFile(String src) {
-		File file = new File(src);
-		if(file.exists() && file.isFile())
-			return readFile(src, 0, file.length());
-		return null;
-	}
-	
-	public static byte[] readFile(String src, long startpos, long endpos) {
-		try {
-			RandomAccessFile srcfile = new RandomAccessFile (src, "r");
-			if (srcfile.length()<=startpos) {
-				srcfile.close();
-				return null;
-			}
-			srcfile.seek(startpos);
-			byte[] buffer = new byte[(int) ((endpos>srcfile.length()?srcfile.length():endpos)-startpos)];
-			srcfile.read(buffer);
-			srcfile.close();
-			return buffer;
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return null;
-	}
-	
-	public static byte[] mergeByteArray(ArrayList<byte[]> lst) {
-		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			for(byte[] btarr : lst) {
-				out.write(btarr);
-			}
-			return out.toByteArray();
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-	
-	public static InputStream byte2Stream(ArrayList<byte[]> lst) {
-		try {
-			return byte2Stream(mergeByteArray(lst));
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-	
-	public static InputStream byte2Stream(byte[] btarr) {
-    	try {
-    		return new ByteArrayInputStream(btarr);
-    	} catch (Exception e) {
-    		return null;
-    	}
-	}
-
-	public static int getDefaultSliceSize() {
-		if(isWifi())
-			return 500000;
-		else
-			return 200000;
-	}
-	
-    public static byte[] toByteArray(InputStream input) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        copy(input, output);
-        return output.toByteArray();
+    /**
+     * gzip decompress
+     * @param is
+     * @param os
+     * @throws Exception
+     */
+    public static void decompress(InputStream is, OutputStream os)throws Exception{
+        GZIPInputStream gin = new GZIPInputStream(is);
+        int count;
+        byte data[] = new byte[1024];
+        while ((count = gin.read(data, 0, 1024)) != -1){
+            os.write(data, 0, count);
+        }
+        gin.close();
     }
 
-    public static int copy(InputStream input, OutputStream output) throws IOException {
-        long count = copyLarge(input, output);
-        if (count > Integer.MAX_VALUE) {
-            return -1;
+    /**
+     * gzip compress
+     * @param is
+     * @param os
+     * @throws Exception
+     */
+    public static void compress(InputStream is, OutputStream os)throws Exception {
+        GZIPOutputStream gos = new GZIPOutputStream(os);
+        int count;
+        byte data[] = new byte[1024];
+        while ((count = is.read(data, 0, 1024)) != -1) {
+            gos.write(data, 0, count);
         }
-        return (int) count;
+        gos.flush();
+        gos.finish();
+        gos.close();
     }
 
-    public static long copyLarge(InputStream input, OutputStream output) throws IOException {
-        if (input == null) {
-            return -1;
-        }
-
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-        long count = 0;
-        int n = 0;
-        while (-1 != (n = input.read(buffer))) {
-            output.write(buffer, 0, n);
-            count += n;
-        }
-        return count;
+    public static byte[] compress(byte[] is) throws Exception {
+        ByteArrayInputStream tmpInput = new ByteArrayInputStream(is);
+        ByteArrayOutputStream tmpOutput = new ByteArrayOutputStream(1024);
+        HdHttpUtil.compress(tmpInput, tmpOutput);
+        return tmpOutput.toByteArray();
     }
-
 }

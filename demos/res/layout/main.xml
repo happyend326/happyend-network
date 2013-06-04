@@ -3,36 +3,36 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
         android:orientation="vertical">
-
+    
+    
     <Button
-            android:id="@+id/download_file"
+            android:id="@+id/demo1"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:text="download file, like apk"></Button>
+            android:text="upload demo">
+
+    </Button>
 
     <Button
-            android:id="@+id/download_bitmap"
+            android:id="@+id/demo2"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:text="download bitmap"></Button>
+            android:text="gzip demo">
+    </Button>
 
     <Button
-            android:id="@+id/download_file_b"
+            android:id="@+id/demo3"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:text="download file by break point(断点续传)"></Button>
+            android:text="base authentication demo">
 
+    </Button>
 
-    <TextView
-            android:id="@+id/dataview"
+    <Button
+            android:id="@+id/demo4"
             android:layout_width="fill_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:text="download demo">
 
-    </TextView>
-
-    <ImageView
-            android:id="@+id/image"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"></ImageView>
-
+    </Button>
 </LinearLayout>
